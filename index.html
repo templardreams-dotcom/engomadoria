@@ -443,12 +443,12 @@
 
   function tabelaHistorico(movs) {
     if (!movs.length) return '<p class="vazio">Ainda sem movimentos.</p>';
-    return '<table><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th class="num">Peças</th><th class="num">Valor</th><th>Fatura</th><th>Por</th>' + (eAdmin() ? '<th></th>' : '') + '</tr>' +
+    return '<table><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th class="num">Peças</th><th class="num">Valor</th><th>Fatura</th><th>Por</th><th></th></tr>' +
       movs.map(function (m) {
         return '<tr class="' + (m.anulado ? 'anulado' : '') + '"><td>' + dataHora(m.dataHora) + '</td><td>' + esc(NOMES_TIPO[m.tipo] || m.tipo) + '</td><td>' + esc(m.descricao) +
           (m.anulado ? '<br><span class="suave">Anulado: ' + esc(m.motivoAnulacao) + '</span>' : '') +
           '</td><td class="num">' + (m.pecas || '') + '</td><td class="num">' + (m.valor ? euros(m.valor) : '') + '</td><td>' + estadoFatura(m) + '</td><td>' + esc(m.utilizador) + '</td>' +
-          (eAdmin() ? '<td>' + (m.anulado ? '<button class="btn sec peq" data-apagar="' + esc(m.id) + '">Apagar</button>' : '<button class="btn sec peq" data-anular="' + esc(m.id) + '">Anular</button>') + '</td>' : '') + '</tr>';
+          '<td>' + (m.anulado ? (eAdmin() ? '<button class="btn sec peq" data-apagar="' + esc(m.id) + '">Apagar</button>' : '') : '<button class="btn sec peq" data-anular="' + esc(m.id) + '">Anular</button>') + '</td></tr>';
       }).join('') + '</table>';
   }
 
