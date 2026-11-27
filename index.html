@@ -463,13 +463,17 @@
       '<label for="cTel">Telemóvel *</label><input type="tel" id="cTel" value="' + esc(c.telemovel) + '">' +
       '<label for="cEmail">Email</label><input type="email" id="cEmail" value="' + esc(c.email) + '">' +
       '<label for="cMorada">Morada</label><input type="text" id="cMorada" value="' + esc(c.morada) + '">' +
+      '<div class="grelha" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">' +
+        '<div><label for="cCp">Código postal</label><input type="text" id="cCp" placeholder="0000-000" inputmode="numeric" value="' + esc(c.codigoPostal) + '"></div>' +
+        '<div><label for="cLocal">Localidade</label><input type="text" id="cLocal" value="' + esc(c.localidade) + '"></div></div>' +
+      '<p class="suave">A morada, o código postal, a localidade, o email e o telemóvel vão para a fatura quando o cliente pede fatura com o NIF dele.</p>' +
       '<label class="opcao"><input type="checkbox" id="cAlertas"' + (c.autorizaAlertas === 'SIM' ? ' checked' : '') + '> O cliente autoriza receber por email o aviso de que o saldo vai expirar.</label>' +
       '<label for="cObs">Observações (internas)</label><textarea id="cObs">' + esc(c.observacoes) + '</textarea>' +
       '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="gravarCliente">Gravar</button></div>', function () {
       $('#gravarCliente').onclick = function () {
         api('guardarCliente', {
           id: c.id, nome: $('#cNome').value, nif: $('#cNif').value, telemovel: $('#cTel').value, email: $('#cEmail').value,
-          morada: $('#cMorada').value, autorizaAlertas: $('#cAlertas').checked, observacoes: $('#cObs').value
+          morada: $('#cMorada').value, codigoPostal: $('#cCp').value, localidade: $('#cLocal').value, autorizaAlertas: $('#cAlertas').checked, observacoes: $('#cObs').value
         }).then(function (r) { fecharModal(); mensagem('Ficha gravada.'); irPara('cliente', r.id); }).catch(function () {});
       };
     });
@@ -485,7 +489,12 @@
       (temNif ? ' (' + esc(cliente.nif) + ')' : ' <span class="suave">(sem NIF na ficha)</span>') + '</label>' +
       '<label class="opcao"><input type="radio" name="fat" value="OUTRO"> Outro NIF</label>' +
       '<div id="outroNif" style="display:none"><label for="fNif">NIF para a fatura</label><input type="text" id="fNif" inputmode="numeric">' +
-      '<label for="fNome">Nome para a fatura</label><input type="text" id="fNome"></div>';
+      '<label for="fNome">Nome para a fatura</label><input type="text" id="fNome">' +
+      '<label for="fMorada">Morada (opcional)</label><input type="text" id="fMorada">' +
+      '<div class="grelha" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">' +
+        '<div><label for="fCp">Código postal</label><input type="text" id="fCp" placeholder="0000-000" inputmode="numeric"></div>' +
+        '<div><label for="fLocal">Localidade</label><input type="text" id="fLocal"></div></div>' +
+      '<label for="fEmail">Email (opcional)</label><input type="email" id="fEmail"></div>';
   }
   function ligarFaturacao() {
     $$('input[name=fat]').forEach(function (r) {
@@ -495,7 +504,8 @@
   function lerFaturacao() {
     var sel = $('input[name=fat]:checked');
     if (!sel) { mensagem('Escolhe se o cliente quer fatura.', true); return null; }
-    return { tipo: sel.value, nif: $('#fNif') ? $('#fNif').value : '', nome: $('#fNome') ? $('#fNome').value : '' };
+    var v = function (id) { return $('#' + id) ? $('#' + id).value : ''; };
+    return { tipo: sel.value, nif: v('fNif'), nome: v('fNome'), morada: v('fMorada'), codigoPostal: v('fCp'), localidade: v('fLocal'), email: v('fEmail') };
   }
 
   // ------------------------------------------------------------------ vender pack
