@@ -846,6 +846,7 @@
           ? '<p><span class="etiqueta e-ok">Ligado</span> As vendas com fatura são criadas automaticamente no GESFaturação.' +
             (d.gesInfo ? '<br><span class="suave">Chave configurada por ' + esc(d.gesInfo) + '.</span>' : '') + '</p>' +
             '<p class="linha"><button class="btn sec peq" id="gesVerificar">Verificar ligação</button>' +
+            '<button class="btn sec peq" id="gesVerFaturas">Ver últimas faturas</button>' +
             '<button class="btn sec peq" id="gesTrocar">Trocar chave</button><button class="btn sec peq" id="gesDesligar">Desligar</button></p>'
           : '<p><span class="etiqueta e-neutra">Desligado</span> As faturas emitem-se à mão no GESFaturação.</p>') +
         '<div id="gesChaveBloco"' + (d.gesLigado ? ' style="display:none"' : '') + '>' +
@@ -853,7 +854,7 @@
           '<input type="password" id="gesChave" autocomplete="off" spellcheck="false" placeholder="Cola aqui a chave">' +
           '<p class="suave">A chave é testada no GESFaturação antes de ser guardada. Fica guardada no servidor da app, fora da folha de dados, e nunca volta a aparecer neste ecrã.</p>' +
           '<p><button class="btn" id="gesGuardarChave">Guardar e testar chave</button></p></div>' +
-        '<div id="gesListas"></div>' +
+        '<div id="gesFaturas"></div><div id="gesListas"></div>' +
         '<h2 style="margin-top:16px">Como emitir</h2>' +
         '<label for="gesFinalizar">Faturas criadas pela app</label><select id="gesFinalizar">' +
           '<option value="NAO">Em rascunho (finalizo eu no GESFaturação)</option>' +
@@ -886,6 +887,23 @@
         }).catch(function () { chave = null; });
       };
       if ($('#gesTrocar')) $('#gesTrocar').onclick = function () { $('#gesChaveBloco').style.display = 'block'; $('#gesChave').focus(); };
+      if ($('#gesVerFaturas')) $('#gesVerFaturas').onclick = function () {
+        $('#gesFaturas').innerHTML = '<p class="vazio">A carregar…</p>';
+        api('gesListarFaturas').then(function (lista) {
+          $('#gesFaturas').innerHTML = '<h2 style="margin-top:14px">Últimas faturas-recibo no GESFaturação</h2>' + (lista.length
+            ? '<div style="overflow-x:auto"><table><tr><th>Número</th><th>Data</th><th>Cliente</th><th>Estado</th><th class="num">Total</th><th></th></tr>' +
+              lista.map(function (x) {
+                return '<tr><td>' + esc(x.numero) + '</td><td>' + data(x.data) + '</td><td>' + esc(x.cliente) + (x.nif ? '<br><span class="suave">NIF ' + esc(x.nif) + '</span>' : '') +
+                  '</td><td>' + esc(x.estado) + '</td><td class="num">' + euros(x.total) + '</td><td style="white-space:nowrap">' +
+                  '<button class="btn sec peq" data-ges-doc="' + esc(x.id) + '" data-formato="receipt">Talão</button> ' +
+                  '<button class="btn sec peq" data-ges-doc="' + esc(x.id) + '" data-formato="a4">A4</button></td></tr>';
+              }).join('') + '</table></div><p class="suave">Só leitura: abrir um talão ou um A4 não altera nada no GESFaturação.</p>'
+            : '<p class="vazio">Sem faturas-recibo.</p>');
+          $$('[data-ges-doc]').forEach(function (b) {
+            b.onclick = function () { abrirPdfGes(b.getAttribute('data-ges-doc'), b.getAttribute('data-formato')); };
+          });
+        }).catch(function () { $('#gesFaturas').innerHTML = ''; });
+      };
       if ($('#gesVerificar')) $('#gesVerificar').onclick = function () {
         api('gesVerificar').then(function (listas) { mensagem('Ligação ao GESFaturação a funcionar.'); mostrarListasGes(listas); }).catch(function () {});
       };
@@ -933,6 +951,19 @@
         };
       });
     }).catch(function () {});
+  }
+
+  // Abre o PDF (talão ou A4) gerado pelo GESFaturação numa janela nova.
+  function abrirPdfGes(id, formato) {
+    var janela = window.open('', '_blank'); // aberta já no clique, para o browser não a bloquear
+    if (janela) janela.document.write('<p style="font-family:sans-serif">A carregar o documento do GESFaturação…</p>');
+    api('gesDocumento', { id: id, formato: formato }).then(function (r) {
+      var bin = atob(r.pdf), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      if (janela) { janela.location.href = url; }
+      else { var a = document.createElement('a'); a.href = url; a.download = r.nome; document.body.appendChild(a); a.click(); a.remove(); }
+    }).catch(function () { if (janela) janela.close(); });
   }
 
   // Mostra as séries, taxas e artigos lidos do GESFaturação, para confirmar os números usados nas faturas.
