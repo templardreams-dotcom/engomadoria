@@ -794,8 +794,10 @@
         campo('dNome', 'Nome', c.lojaNome) + campo('dMorada', 'Morada', c.lojaMorada) + campo('dCp', 'Código postal e localidade', c.lojaCodigoPostal) +
         campo('dTel', 'Telefone', c.lojaTelefone) + campo('dHorario', 'Horário', c.lojaHorario) + '</div></div>' +
         '<div class="cartao"><button class="btn" id="gravarDef">Gravar preços, alertas e dados da loja</button></div>' +
-        '<div class="cartao"><h2>Packs</h2><table id="tPacks"><tr><th>Nome</th><th>Peças</th><th>Preço (€)</th><th>Ativo</th><th></th></tr>' +
-        d.packs.map(function (p) { return linhaPack(p); }).join('') + linhaPack({}) + '</table></div>' +
+        '<div class="cartao"><h2>Packs</h2><p class="suave">À venda só entre as datas "Desde" e "Até" (inclusive). Data vazia = sem limite.</p>' +
+        '<div style="overflow-x:auto"><table id="tPacks"><tr><th>Nome</th><th>Peças</th><th>Preço (€)</th><th>Desde</th><th>Até</th><th>Ativo</th><th></th></tr>' +
+        d.packs.slice().sort(function (a, b) { return (a.ate || '9999') < (b.ate || '9999') ? -1 : (a.ate || '9999') > (b.ate || '9999') ? 1 : Number(a.pecas) - Number(b.pecas); })
+          .map(function (p) { return linhaPack(p); }).join('') + linhaPack({}) + '</table></div></div>' +
         '<div class="cartao"><h2>Utilizadores</h2><table><tr><th>Nome</th><th>Nível</th><th>Ativo</th><th></th></tr>' +
         d.utilizadores.map(function (u) { return linhaUtilizador(u); }).join('') + linhaUtilizador({}) + '</table></div>'
       );
@@ -809,7 +811,7 @@
       $$('[data-gravar-pack]').forEach(function (b) {
         b.onclick = function () {
           var tr = b.closest('tr');
-          api('guardarPack', { id: b.getAttribute('data-gravar-pack'), nome: $('.pNome', tr).value, pecas: $('.pPecas', tr).value, preco: $('.pPreco', tr).value, ativo: $('.pAtivo', tr).checked })
+          api('guardarPack', { id: b.getAttribute('data-gravar-pack'), nome: $('.pNome', tr).value, pecas: $('.pPecas', tr).value, preco: $('.pPreco', tr).value, desde: $('.pDesde', tr).value, ate: $('.pAte', tr).value, ativo: $('.pAtivo', tr).checked })
             .then(function () { estado.inicio = null; mensagem('Pack gravado.'); ecraDefinicoes(); }).catch(function () {});
         };
       });
@@ -835,9 +837,11 @@
 
   function linhaPack(p) {
     var novo = !p.id;
-    return '<tr><td><input type="text" class="pNome" value="' + esc(p.nome) + '" placeholder="' + (novo ? 'Novo pack' : '') + '"></td>' +
+    return '<tr><td><input type="text" class="pNome" style="min-width:120px" value="' + esc(p.nome) + '" placeholder="' + (novo ? 'Novo pack' : '') + '"></td>' +
       '<td><input type="number" class="pPecas" value="' + esc(p.pecas) + '" style="width:90px"></td>' +
       '<td><input type="text" class="pPreco" value="' + esc(String(p.preco || '').replace('.', ',')) + '" style="width:100px"></td>' +
+      '<td><input type="date" class="pDesde" value="' + esc(p.desde || '') + '" style="width:auto"></td>' +
+      '<td><input type="date" class="pAte" value="' + esc(p.ate || '') + '" style="width:auto"></td>' +
       '<td><input type="checkbox" class="pAtivo"' + (novo || p.ativo === 'SIM' ? ' checked' : '') + '></td>' +
       '<td><button class="btn peq" data-gravar-pack="' + esc(p.id || '') + '">' + (novo ? 'Acrescentar' : 'Gravar') + '</button></td></tr>';
   }
