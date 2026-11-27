@@ -798,10 +798,16 @@
         '<div style="overflow-x:auto"><table id="tPacks"><tr><th>Nome</th><th>Peças</th><th>Preço (€)</th><th>Desde</th><th>Até</th><th>Ativo</th><th></th></tr>' +
         d.packs.slice().sort(function (a, b) { return (a.ate || '9999') < (b.ate || '9999') ? -1 : (a.ate || '9999') > (b.ate || '9999') ? 1 : Number(a.pecas) - Number(b.pecas); })
           .map(function (p) { return linhaPack(p); }).join('') + linhaPack({}) + '</table></div></div>' +
+        '<div class="cartao"><h2>Clientes</h2><p class="suave">Procura o cliente e clica em Apagar. A ficha e o saldo são apagados. ' +
+        'As vendas e entregas já feitas continuam nos relatórios.</p>' +
+        '<input type="text" id="dProcura" placeholder="Procurar cliente por nome, NIF ou telemóvel"><div id="dClientes" style="margin-top:10px"></div></div>' +
         '<div class="cartao"><h2>Utilizadores</h2><table><tr><th>Nome</th><th>Nível</th><th>Ativo</th><th></th></tr>' +
         d.utilizadores.map(function (u) { return linhaUtilizador(u); }).join('') + linhaUtilizador({}) + '</table></div>'
       );
       $('#dAlertas').value = c.alertasAtivos === 'SIM' ? 'SIM' : 'NAO';
+      var tempoDef;
+      $('#dProcura').oninput = function () { clearTimeout(tempoDef); tempoDef = setTimeout(procurarParaApagar, 250); };
+      procurarParaApagar();
       $('#gravarDef').onclick = function () {
         api('guardarDefinicoes', {
           precoPeca: $('#dPreco').value, alertasAtivos: $('#dAlertas').value, diasAlerta: $('#dDias').value, emailTesteAlertas: $('#dTeste').value,
@@ -833,6 +839,37 @@
         };
       });
     }).catch(function () {});
+  }
+
+  // Lista de clientes em Definições, com o botão Apagar (só administrador).
+  function procurarParaApagar() {
+    if (!$('#dProcura')) return;
+    api('procurarClientes', { termo: $('#dProcura').value }).then(function (lista) {
+      if (!$('#dClientes')) return;
+      if (!lista.length) { $('#dClientes').innerHTML = '<p class="vazio">Nenhum cliente encontrado.</p>'; return; }
+      $('#dClientes').innerHTML = '<table><tr><th>Cliente</th><th>NIF</th><th>Telemóvel</th><th class="num">Saldo</th><th></th></tr>' +
+        lista.map(function (x) {
+          return '<tr><td>' + esc(x.nome) + '</td><td>' + esc(x.nif) + '</td><td>' + esc(x.telemovel) + '</td><td class="num">' + x.saldo +
+            '</td><td><button class="btn sec peq" data-apagar-cliente="' + esc(x.id) + '" data-nome="' + esc(x.nome) + '" data-saldo="' + x.saldo + '">Apagar</button></td></tr>';
+        }).join('') + '</table>' + (lista.length >= 40 ? '<p class="suave">A mostrar os primeiros 40. Escreve para procurar.</p>' : '');
+      $$('[data-apagar-cliente]').forEach(function (b) {
+        b.onclick = function () { modalApagarCliente(b.getAttribute('data-apagar-cliente'), b.getAttribute('data-nome'), Number(b.getAttribute('data-saldo'))); };
+      });
+    }).catch(function () {});
+  }
+
+  function modalApagarCliente(id, nome, saldo) {
+    abrirModal('<h2>Apagar cliente</h2><p><b>' + esc(nome) + '</b></p>' +
+      (saldo > 0 ? '<p class="etiqueta e-aviso">Este cliente ainda tem ' + saldo + ' peças de saldo válido. O saldo perde-se.</p>' : '') +
+      '<p class="suave">A ficha e os saldos do cliente são apagados e deixam de aparecer na app. As vendas e entregas já feitas continuam nos relatórios. ' +
+      'Não se pode desfazer na app. Fica só uma cópia de segurança na folha de dados (separador ClientesApagados).</p>' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn perigo" id="confApagarCliente">Apagar cliente</button></div>', function () {
+      $('#confApagarCliente').onclick = function () {
+        api('apagarCliente', { clienteId: id }).then(function () {
+          fecharModal(); estado.inicio = null; mensagem('Cliente apagado.'); procurarParaApagar();
+        }).catch(function () {});
+      };
+    });
   }
 
   function linhaPack(p) {
