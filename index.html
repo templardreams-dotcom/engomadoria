@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fastwash Engomadoria — Gestão</title>
+<style>
+  :root {
+    --fundo: #f3f3f1; --papel: #ffffff; --tinta: #1f2326; --suave: #6b7177; --linha: #dcdcd8;
+    --marca: #2c3136; --acao: #1d6fa5; --acao-escuro: #155680; --ok: #2e7d4f; --aviso: #b26a00; --erro: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.45 "Segoe UI", Roboto, Arial, sans-serif; color: var(--tinta); background: var(--fundo); }
+  button, input, select, textarea { font: inherit; }
+  header { background: var(--marca); color: #fff; display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap; }
+  header .marca { font-weight: 700; letter-spacing: .5px; margin-right: auto; }
+  header nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  header nav button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  header nav button:hover, header nav button.ativo { background: rgba(255,255,255,.15); }
+  header .quem { font-size: 14px; opacity: .85; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+  .grelha { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .suave { color: var(--suave); font-size: 14px; }
+  .btn { background: var(--acao); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; }
+  .btn:hover { background: var(--acao-escuro); }
+  .btn.grande { padding: 16px 24px; font-size: 18px; }
+  .btn.sec { background: #e6e8ea; color: var(--tinta); }
+  .btn.sec:hover { background: #d8dbde; }
+  .btn.perigo { background: var(--erro); }
+  .btn.peq { padding: 5px 10px; font-size: 14px; font-weight: 500; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  input[type=text], input[type=tel], input[type=email], input[type=number], input[type=password], input[type=date], input[type=month], select, textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid #c4c7ca; border-radius: 8px; background: #fff;
+  }
+  textarea { min-height: 70px; }
+  label { display: block; font-weight: 600; font-size: 14px; margin: 10px 0 4px; }
+  label.opcao { font-weight: 400; font-size: 16px; display: flex; gap: 8px; align-items: center; margin: 6px 0; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { font-size: 13px; color: var(--suave); font-weight: 600; }
+  tr.clicavel { cursor: pointer; }
+  tr.clicavel:hover { background: #f0f5f9; }
+  tr.anulado td { color: #999; text-decoration: line-through; }
+  .num { text-align: right; white-space: nowrap; }
+  .etiqueta { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+  .e-ok { background: #e3f2e8; color: var(--ok); }
+  .e-aviso { background: #fff1db; color: var(--aviso); }
+  .e-erro { background: #fde7e5; color: var(--erro); }
+  .e-neutra { background: #eceeef; color: var(--suave); }
+  .saldo-grande { font-size: 44px; font-weight: 700; line-height: 1; }
+  .vazio { color: var(--suave); padding: 10px 0; }
+  .packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .pack { border: 2px solid var(--linha); border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; background: #fff; }
+  .pack.sel { border-color: var(--acao); background: #eef5fb; }
+  .pack b { display: block; font-size: 20px; }
+  .resumo { background: #f6f7f8; border-radius: 8px; padding: 12px; margin-top: 12px; }
+  .resumo div { display: flex; justify-content: space-between; gap: 12px; }
+  .msg { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--tinta); color: #fff; padding: 12px 20px; border-radius: 8px; z-index: 50; max-width: 90%; }
+  .msg.erro { background: var(--erro); }
+  .fundo-modal { position: fixed; inset: 0; background: rgba(20,24,28,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; z-index: 40; }
+  .modal { background: #fff; border-radius: 12px; padding: 22px; width: 100%; max-width: 560px; }
+  .modal .rodape { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .entrada { max-width: 420px; margin: 60px auto; }
+  .nomes { display: grid; gap: 10px; }
+  .carregar { opacity: .6; pointer-events: none; }
+  #talao { display: none; }
+
+  /* Talão para impressora térmica de 80 mm */
+  @media print {
+    @page { margin: 0; }
+    body { background: #fff; }
+    body > *:not(#talao) { display: none !important; }
+    #talao { display: block; width: 72mm; padding: 2mm 0; font: 12px/1.35 "Courier New", monospace; color: #000; }
+    #talao .c { text-align: center; }
+    #talao .t { font-weight: 700; font-size: 14px; }
+    #talao hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    #talao .l { display: flex; justify-content: space-between; gap: 6px; }
+    #talao .sub { padding-left: 3mm; }
+    #talao .total { font-weight: 700; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modais"></div>
+<div id="talao"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var estado = { token: null, utilizador: null, ecra: 'inicio', inicio: null, cliente: null };
+  var app = document.getElementById('app');
+  var modais = document.getElementById('modais');
+
+  // ------------------------------------------------------------------ utilitários
+  function esc(t) {
+    return String(t === undefined || t === null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function euros(v) { return Number(v || 0).toFixed(2).replace('.', ',') + ' €'; }
+  function data(d) { if (!d) return ''; var p = String(d).slice(0, 10).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+  function dataHora(d) { return d ? data(d) + ' ' + String(d).slice(11, 16) : ''; }
+  function somarDias(iso, n) {
+    var p = iso.split('-'); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  function $(sel, raiz) { return (raiz || document).querySelector(sel); }
+  function $$(sel, raiz) { return Array.prototype.slice.call((raiz || document).querySelectorAll(sel)); }
+  // Guarda a sessão no separador (se o browser não deixar, pede o PIN ao recarregar).
+  var memoria = {
+    ler: function () { try { return sessionStorage.getItem('sessao'); } catch (e) { return null; } },
+    gravar: function (v) { try { sessionStorage.setItem('sessao', v); } catch (e) {} },
+    apagar: function () { try { memoria.apagar(); } catch (e) {} }
+  };
+  function eAdmin() { return estado.utilizador && estado.utilizador.nivel === 'ADMIN'; }
+
+  function mensagem(texto, erro) {
+    var m = document.createElement('div');
+    m.className = 'msg' + (erro ? ' erro' : '');
+    m.textContent = texto;
+    document.body.appendChild(m);
+    setTimeout(function () { m.remove(); }, erro ? 6000 : 3000);
+  }
+
+  // Endereço da API (Apps Script). Usado quando a página está alojada fora do Google:
+  // o pedido vai sem cookies, por isso funciona em qualquer browser, perfil ou telemóvel.
+  var API_URL = 'https://script.google.com/macros/s/AKfycbyeiMJhWY9fM7sJJjvkpceL9FSb4h0_kw65999QEZc4lqduAcANjdm5gm6d663ygG1XJQ/exec';
+
+  function servidor(funcao, args) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      return new Promise(function (ok, falha) {
+        var r = google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { falha(e); });
+        r[funcao].apply(r, args);
+      });
+    }
+    return fetch(API_URL, {
+      method: 'POST',
+      credentials: 'omit',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ fn: funcao, args: args })
+    }).then(function (resp) {
+      if (!resp.ok) throw new Error('Sem ligação ao servidor (' + resp.status + '). Tenta outra vez.');
+      return resp.json();
+    }, function () {
+      throw new Error('Sem ligação ao servidor. Verifica a internet e tenta outra vez.');
+    }).then(function (j) {
+      if (!j.ok) throw new Error(j.erro);
+      return j.r;
+    });
+  }
+
+  function api(acao, dados) {
+    document.body.classList.add('carregar');
+    return servidor('chamar', [estado.token, acao, dados || {}])
+      .then(function (r) { document.body.classList.remove('carregar'); return r; })
+      .catch(function (e) {
+        document.body.classList.remove('carregar');
+        var t = (e && e.message) || String(e);
+        if (t.indexOf('SESSAO_EXPIRADA') >= 0) {
+          memoria.apagar();
+          estado.token = null; estado.utilizador = null;
+          fecharModal(); mostrarEntrada();
+          mensagem('A sessão terminou. Entra outra vez.', true);
+        } else {
+          mensagem(t.replace(/^Error:\s*/, '').replace(/^Exception:\s*/, ''), true);
+        }
+        throw e;
+      });
+  }
+
+  // ------------------------------------------------------------------ modais
+  function abrirModal(html, aoAbrir) {
+    modais.innerHTML = '<div class="fundo-modal"><div class="modal">' + html + '</div></div>';
+    var f = $('.fundo-modal', modais);
+    f.addEventListener('click', function (ev) { if (ev.target === f) fecharModal(); });
+    $$('[data-fechar]', modais).forEach(function (b) { b.onclick = fecharModal; });
+    if (aoAbrir) aoAbrir($('.modal', modais));
+    var primeiro = $('input[autofocus], input:not([type=radio]):not([type=checkbox]), select', modais);
+    if (primeiro) primeiro.focus();
+  }
+  function fecharModal() { modais.innerHTML = ''; }
+
+  // ------------------------------------------------------------------ entrada
+  function mostrarEntrada() {
+    app.innerHTML = '<div class="entrada cartao"><h1>Fastwash Engomadoria</h1><p class="suave">Quem és?</p><div class="nomes" id="nomes">A carregar…</div></div>';
+    servidor('listarNomesEntrada', []).then(function (nomes) {
+      $('#nomes').innerHTML = nomes.map(function (n) {
+        return '<button class="btn sec grande" data-id="' + esc(n.id) + '">' + esc(n.nome) + '</button>';
+      }).join('');
+      $$('#nomes button').forEach(function (b) {
+        b.onclick = function () { pedirPin(b.getAttribute('data-id'), b.textContent); };
+      });
+    }).catch(function (e) { $('#nomes').innerHTML = '<p class="e-erro etiqueta">' + esc(e.message || e) + '</p>'; });
+  }
+
+  function pedirPin(id, nome) {
+    app.innerHTML = '<div class="entrada cartao"><h1>' + esc(nome) + '</h1>' +
+      '<label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off" autofocus>' +
+      '<div class="linha" style="margin-top:14px"><button class="btn grande" id="entrar">Entrar</button><button class="btn sec" id="voltar">Voltar</button></div></div>';
+    var pin = $('#pin');
+    pin.focus();
+    function tentar() {
+      servidor('entrar', [id, pin.value]).then(function (r) {
+        estado.token = r.token; estado.utilizador = r.utilizador;
+        memoria.gravar(JSON.stringify(r));
+        irPara('inicio');
+      }).catch(function (e) { mensagem(String(e.message || e).replace(/^Error:\s*/, ''), true); pin.value = ''; pin.focus(); });
+    }
+    $('#entrar').onclick = tentar;
+    pin.onkeydown = function (ev) { if (ev.key === 'Enter') tentar(); };
+    $('#voltar').onclick = mostrarEntrada;
+  }
+
+  function sairDaApp() {
+    servidor('sair', [estado.token]).catch(function () {});
+    memoria.apagar();
+    estado.token = null; estado.utilizador = null;
+    mostrarEntrada();
+  }
+
+  // ------------------------------------------------------------------ estrutura
+  function moldura(conteudo) {
+    var u = estado.utilizador;
+    var nav = [['inicio', 'Início']];
+    if (eAdmin()) nav.push(['relatorios', 'Relatórios'], ['definicoes', 'Definições']);
+    app.innerHTML =
+      '<header><span class="marca">FASTWASH ENGOMADORIA</span><nav>' +
+      nav.map(function (n) { return '<button data-ir="' + n[0] + '" class="' + (estado.ecra === n[0] ? 'ativo' : '') + '">' + n[1] + '</button>'; }).join('') +
+      '<button id="meuPin">O meu PIN</button><button id="sair">Sair</button></nav>' +
+      '<span class="quem">' + esc(u.nome) + ' · ' + (u.nivel === 'ADMIN' ? 'Administrador' : 'Operador') + '</span></header>' +
+      '<main>' + conteudo + '</main>';
+    $$('[data-ir]').forEach(function (b) { b.onclick = function () { irPara(b.getAttribute('data-ir')); }; });
+    $('#sair').onclick = sairDaApp;
+    $('#meuPin').onclick = modalMeuPin;
+  }
+
+  function irPara(ecra, dados) {
+    estado.ecra = ecra;
+    if (ecra === 'inicio') return ecraInicio();
+    if (ecra === 'cliente') return ecraCliente(dados);
+    if (ecra === 'relatorios') return ecraRelatorios();
+    if (ecra === 'definicoes') return ecraDefinicoes();
+  }
+
+  // ------------------------------------------------------------------ início
+  function ecraInicio() {
+    moldura('<div class="cartao"><div class="linha"><input type="text" id="procura" placeholder="Procurar cliente por nome, NIF ou telemóvel" style="flex:1;min-width:240px">' +
+      '<button class="btn" id="novoCliente">Novo cliente</button></div><div id="resultados" style="margin-top:12px"></div></div>' +
+      '<div class="grelha"><div class="cartao"><h2>Saldos a expirar (próximos 7 dias)</h2><div id="aExpirar" class="vazio">A carregar…</div></div>' +
+      '<div class="cartao"><h2>Faturas por emitir no GESFaturação</h2><div id="pendentes" class="vazio">A carregar…</div></div></div>');
+    var caixa = $('#procura');
+    var tempo;
+    caixa.oninput = function () { clearTimeout(tempo); tempo = setTimeout(procurar, 250); };
+    caixa.focus();
+    $('#novoCliente').onclick = function () { modalCliente(null); };
+    procurar();
+    api('inicio').then(function (r) {
+      estado.inicio = r;
+      $('#aExpirar').outerHTML = tabelaAExpirar(r.aExpirar);
+      $('#pendentes').outerHTML = tabelaPendentes(r.faturasPendentes, true);
+      ligarLinhasCliente();
+      ligarBotoesFatura(r.faturasPendentes, ecraInicio);
+    }).catch(function () {});
+  }
+
+  function procurar() {
+    var termo = $('#procura') ? $('#procura').value : '';
+    api('procurarClientes', { termo: termo }).then(function (lista) {
+      if (!$('#resultados')) return;
+      if (!lista.length) { $('#resultados').innerHTML = '<p class="vazio">Nenhum cliente encontrado.</p>'; return; }
+      $('#resultados').innerHTML = '<table><tr><th>Cliente</th><th>NIF</th><th>Telemóvel</th><th class="num">Saldo</th><th>Expira em</th></tr>' +
+        lista.map(function (c) {
+          var exp = c.proximaExpiracao ? data(c.proximaExpiracao) : (c.saldoExpirado ? '<span class="etiqueta e-erro">' + c.saldoExpirado + ' expiradas</span>' : '—');
+          return '<tr class="clicavel" data-cliente="' + esc(c.id) + '"><td>' + esc(c.nome) + '</td><td>' + esc(c.nif) + '</td><td>' + esc(c.telemovel) +
+            '</td><td class="num"><b>' + c.saldo + '</b></td><td>' + exp + '</td></tr>';
+        }).join('') + '</table>';
+      ligarLinhasCliente();
+    }).catch(function () {});
+  }
+
+  function ligarLinhasCliente() {
+    $$('[data-cliente]').forEach(function (tr) { tr.onclick = function () { irPara('cliente', tr.getAttribute('data-cliente')); }; });
+  }
+
+  function tabelaAExpirar(lista) {
+    if (!lista.length) return '<p class="vazio">Nenhum saldo a expirar nos próximos 7 dias.</p>';
+    return '<table><tr><th>Cliente</th><th class="num">Peças</th><th>Expira</th><th>Aviso</th></tr>' + lista.map(function (x) {
+      var aviso = x.alertaEnviado ? '<span class="etiqueta e-ok">Email enviado</span>'
+        : x.temEmail ? '<span class="etiqueta e-neutra">Email automático</span>'
+        : '<span class="etiqueta e-aviso">Avisar: ' + esc(x.telemovel) + '</span>';
+      var quando = x.dias === 0 ? 'hoje' : x.dias === 1 ? 'amanhã' : 'em ' + x.dias + ' dias';
+      return '<tr class="clicavel" data-cliente="' + esc(x.clienteId) + '"><td>' + esc(x.clienteNome) + '</td><td class="num">' + x.pecas +
+        '</td><td>' + data(x.dataExpiracao) + '<br><span class="suave">' + quando + '</span></td><td>' + aviso + '</td></tr>';
+    }).join('') + '</table>';
+  }
+
+  // ------------------------------------------------------------------ faturas por emitir
+  function tabelaPendentes(lista, comCliente) {
+    if (!lista.length) return '<p class="vazio">Nenhuma fatura por emitir.</p>';
+    return '<table><tr><th>Data</th>' + (comCliente ? '<th>Cliente</th>' : '') + '<th>Descrição</th><th class="num">Valor</th><th></th></tr>' + lista.map(function (m) {
+      return '<tr><td>' + dataHora(m.dataHora) + '</td>' + (comCliente ? '<td>' + esc(m.clienteNome) + '</td>' : '') + '<td>' + esc(m.tipo === 'PACK' ? m.descricao : m.pecasAvulso + ' peças à peça') +
+        '</td><td class="num">' + euros(m.valor) + '</td><td><button class="btn peq" data-fatura="' + esc(m.id) + '">Emitir</button></td></tr>';
+    }).join('') + '</table>';
+  }
+
+  function ligarBotoesFatura(lista, depois) {
+    $$('[data-fatura]').forEach(function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        var m = lista.filter(function (x) { return x.id === b.getAttribute('data-fatura'); })[0];
+        modalFatura(m, depois);
+      };
+    });
+  }
+
+  function blocoDadosFatura(m) {
+    var artigo, qtd, unit;
+    if (m.tipo === 'PACK') { artigo = m.descricao + ' — ' + m.pecas + ' peças de engomadoria'; qtd = 1; unit = m.valor; }
+    else { artigo = 'Engomadoria à peça'; qtd = m.pecasAvulso; unit = m.pecasAvulso ? m.valor / m.pecasAvulso : m.valor; }
+    var cliente = m.faturacao === 'CF' ? 'Consumidor final' : esc(m.nomeFatura) + ' — NIF ' + esc(m.nifFatura);
+    return '<div class="resumo"><div><span>Cliente na fatura</span><b>' + cliente + '</b></div>' +
+      '<div><span>Artigo</span><b>' + esc(artigo) + '</b></div>' +
+      '<div><span>Quantidade</span><b>' + qtd + '</b></div>' +
+      '<div><span>Preço unitário (IVA incluído)</span><b>' + euros(unit) + '</b></div>' +
+      '<div><span>Total (IVA incluído)</span><b>' + euros(m.valor) + '</b></div></div>';
+  }
+
+  function modalFatura(m, depois) {
+    abrirModal('<h2>Emitir fatura no GESFaturação</h2><p class="suave">Emite a fatura no GESFaturação com estes dados e escreve aqui o número da fatura.</p>' +
+      blocoDadosFatura(m) +
+      '<label for="numFat">Número da fatura</label><input type="text" id="numFat" placeholder="Ex.: FR 2026/123">' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Mais tarde</button><button class="btn" id="gravarFat">Gravar número</button></div>', function () {
+      $('#numFat').focus();
+      $('#gravarFat').onclick = function () {
+        api('registarNumeroFatura', { movimentoId: m.id, numFatura: $('#numFat').value }).then(function () {
+          fecharModal(); mensagem('Número da fatura gravado.'); if (depois) depois();
+        }).catch(function () {});
+      };
+    });
+  }
+
+  // ------------------------------------------------------------------ ficha do cliente
+  function ecraCliente(id) {
+    moldura('<p class="vazio">A carregar…</p>');
+    api('obterCliente', { id: id }).then(function (r) {
+      estado.cliente = r;
+      desenharCliente();
+    }).catch(function () { irPara('inicio'); });
+  }
+
+  function recarregarCliente() { return ecraCliente(estado.cliente.cliente.id); }
+
+  function desenharCliente() {
+    var r = estado.cliente, c = r.cliente, s = r.saldo;
+    var linhasSaldo = s.validos.length ? '<table><tr><th>Saldo</th><th class="num">Peças</th><th>Expira em</th></tr>' + s.validos.map(function (l) {
+      return '<tr><td>' + esc(l.rotulo) + '</td><td class="num">' + l.pecas + '</td><td>' + data(l.dataExpiracao) + '</td></tr>';
+    }).join('') + '</table>' : '<p class="vazio">Sem saldo válido. Para usar packs, o cliente tem de comprar um pack novo.</p>';
+
+    var expirados = s.expirados.length ? '<h2 style="margin-top:16px">Saldo expirado</h2><table><tr><th>Pack</th><th class="num">Peças</th><th>Expirou em</th><th></th></tr>' +
+      s.expirados.map(function (l) {
+        return '<tr><td>' + esc(l.descricao) + '</td><td class="num">' + l.pecas + '</td><td>' + data(l.dataExpiracao) + '</td><td>' +
+          (eAdmin() ? '<button class="btn peq" data-libertar="' + esc(l.id) + '">Libertar</button>' : '<span class="suave">Só o administrador pode libertar</span>') + '</td></tr>';
+      }).join('') + '</table>' : '';
+
+    var podeEstender = eAdmin() && s.validos.length > 1;
+    var pendentes = r.movimentos.filter(function (m) { return m.estadoFatura === 'PENDENTE' && !m.anulado; });
+
+    moldura(
+      '<div class="linha" style="margin-bottom:14px"><button class="btn sec peq" id="voltar">← Voltar</button></div>' +
+      '<div class="grelha">' +
+      '<div class="cartao"><div class="linha" style="justify-content:space-between"><h1>' + esc(c.nome) + '</h1><button class="btn sec peq" id="editar">Editar ficha</button></div>' +
+      '<table>' +
+      '<tr><th>NIF</th><td>' + (esc(c.nif) || '—') + '</td></tr>' +
+      '<tr><th>Telemóvel</th><td>' + esc(c.telemovel) + '</td></tr>' +
+      '<tr><th>Email</th><td>' + (esc(c.email) || '—') + '</td></tr>' +
+      '<tr><th>Morada</th><td>' + (esc(c.morada) || '—') + '</td></tr>' +
+      '<tr><th>Alertas por email</th><td>' + (c.autorizaAlertas === 'SIM' ? (c.email ? 'Autorizados' : 'Autorizados, mas sem email') : 'Não autorizados') + '</td></tr>' +
+      (c.observacoes ? '<tr><th>Observações</th><td>' + esc(c.observacoes) + '</td></tr>' : '') +
+      '</table></div>' +
+      '<div class="cartao"><span class="suave">Saldo disponível</span><div class="saldo-grande">' + s.total + ' <span style="font-size:20px">peças</span></div>' +
+      '<div style="margin-top:12px">' + linhasSaldo + '</div>' + expirados +
+      (podeEstender ? '<p style="margin-top:12px"><button class="btn sec peq" id="estender">Estender saldo anterior até à data do pack atual</button></p>' : '') +
+      '</div></div>' +
+      '<div class="cartao linha"><button class="btn grande" id="entrega">Registar entrega</button><button class="btn grande" id="vender">Vender pack</button>' +
+      '<button class="btn grande sec" id="talaoBtn">Imprimir talão</button></div>' +
+      (pendentes.length ? '<div class="cartao"><h2>Faturas por emitir</h2>' + tabelaPendentes(pendentes, false) + '</div>' : '') +
+      '<div class="cartao"><h2>Histórico</h2>' + tabelaHistorico(r.movimentos) + '</div>'
+    );
+    $('#voltar').onclick = function () { irPara('inicio'); };
+    $('#editar').onclick = function () { modalCliente(c); };
+    $('#entrega').onclick = function () { modalEntrega(); };
+    $('#vender').onclick = function () { modalVenderPack(); };
+    $('#talaoBtn').onclick = function () { imprimirTalao(null); };
+    if (podeEstender) $('#estender').onclick = modalEstender;
+    $$('[data-libertar]').forEach(function (b) { b.onclick = function () { modalLibertar(b.getAttribute('data-libertar')); }; });
+    $$('[data-anular]').forEach(function (b) { b.onclick = function () { modalAnular(b.getAttribute('data-anular')); }; });
+    ligarBotoesFatura(pendentes, recarregarCliente);
+  }
+
+  var NOMES_TIPO = { PACK: 'Compra de pack', ENTREGA: 'Entrega', LIBERTACAO: 'Saldo libertado', JUNCAO: 'Saldo estendido' };
+
+  function estadoFatura(m) {
+    if (m.estadoFatura === 'EMITIDA') return '<span class="etiqueta e-ok">' + esc(m.numFatura) + '</span>';
+    if (m.estadoFatura === 'PENDENTE') return '<span class="etiqueta e-aviso">Por emitir</span>';
+    if (m.valor > 0) return '<span class="etiqueta e-neutra">Sem fatura</span>';
+    return '';
+  }
+
+  function tabelaHistorico(movs) {
+    if (!movs.length) return '<p class="vazio">Ainda sem movimentos.</p>';
+    return '<table><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th class="num">Peças</th><th class="num">Valor</th><th>Fatura</th><th>Por</th>' + (eAdmin() ? '<th></th>' : '') + '</tr>' +
+      movs.map(function (m) {
+        return '<tr class="' + (m.anulado ? 'anulado' : '') + '"><td>' + dataHora(m.dataHora) + '</td><td>' + esc(NOMES_TIPO[m.tipo] || m.tipo) + '</td><td>' + esc(m.descricao) +
+          (m.anulado ? '<br><span class="suave">Anulado: ' + esc(m.motivoAnulacao) + '</span>' : '') +
+          '</td><td class="num">' + (m.pecas || '') + '</td><td class="num">' + (m.valor ? euros(m.valor) : '') + '</td><td>' + estadoFatura(m) + '</td><td>' + esc(m.utilizador) + '</td>' +
+          (eAdmin() ? '<td>' + (m.anulado ? '' : '<button class="btn sec peq" data-anular="' + esc(m.id) + '">Anular</button>') + '</td>' : '') + '</tr>';
+      }).join('') + '</table>';
+  }
+
+  function modalCliente(c) {
+    c = c || {};
+    abrirModal('<h2>' + (c.id ? 'Editar ficha' : 'Novo cliente') + '</h2>' +
+      '<label for="cNome">Nome *</label><input type="text" id="cNome" value="' + esc(c.nome) + '">' +
+      '<label for="cNif">NIF</label><input type="text" id="cNif" inputmode="numeric" value="' + esc(c.nif) + '">' +
+      '<label for="cTel">Telemóvel *</label><input type="tel" id="cTel" value="' + esc(c.telemovel) + '">' +
+      '<label for="cEmail">Email</label><input type="email" id="cEmail" value="' + esc(c.email) + '">' +
+      '<label for="cMorada">Morada</label><input type="text" id="cMorada" value="' + esc(c.morada) + '">' +
+      '<label class="opcao"><input type="checkbox" id="cAlertas"' + (c.autorizaAlertas === 'SIM' ? ' checked' : '') + '> O cliente autoriza receber por email o aviso de que o saldo vai expirar.</label>' +
+      '<label for="cObs">Observações (internas)</label><textarea id="cObs">' + esc(c.observacoes) + '</textarea>' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="gravarCliente">Gravar</button></div>', function () {
+      $('#gravarCliente').onclick = function () {
+        api('guardarCliente', {
+          id: c.id, nome: $('#cNome').value, nif: $('#cNif').value, telemovel: $('#cTel').value, email: $('#cEmail').value,
+          morada: $('#cMorada').value, autorizaAlertas: $('#cAlertas').checked, observacoes: $('#cObs').value
+        }).then(function (r) { fecharModal(); mensagem('Ficha gravada.'); irPara('cliente', r.id); }).catch(function () {});
+      };
+    });
+  }
+
+  // ------------------------------------------------------------------ escolha de faturação
+  function blocoFaturacao(cliente) {
+    var temNif = !!cliente.nif;
+    return '<h2 style="margin-top:18px">Fatura</h2>' +
+      '<label class="opcao"><input type="radio" name="fat" value="SEM"> Sem fatura</label>' +
+      '<label class="opcao"><input type="radio" name="fat" value="CF"> Consumidor final (sem NIF)</label>' +
+      '<label class="opcao"><input type="radio" name="fat" value="CLIENTE"' + (temNif ? '' : ' disabled') + '> NIF do cliente' +
+      (temNif ? ' (' + esc(cliente.nif) + ')' : ' <span class="suave">(sem NIF na ficha)</span>') + '</label>' +
+      '<label class="opcao"><input type="radio" name="fat" value="OUTRO"> Outro NIF</label>' +
+      '<div id="outroNif" style="display:none"><label for="fNif">NIF para a fatura</label><input type="text" id="fNif" inputmode="numeric">' +
+      '<label for="fNome">Nome para a fatura</label><input type="text" id="fNome"></div>';
+  }
+  function ligarFaturacao() {
+    $$('input[name=fat]').forEach(function (r) {
+      r.onchange = function () { $('#outroNif').style.display = r.value === 'OUTRO' && r.checked ? 'block' : 'none'; };
+    });
+  }
+  function lerFaturacao() {
+    var sel = $('input[name=fat]:checked');
+    if (!sel) { mensagem('Escolhe se o cliente quer fatura.', true); return null; }
+    return { tipo: sel.value, nif: $('#fNif') ? $('#fNif').value : '', nome: $('#fNome') ? $('#fNome').value : '' };
+  }
+
+  // ------------------------------------------------------------------ vender pack
+  function garantirInicio() {
+    if (estado.inicio) return Promise.resolve(estado.inicio);
+    return api('inicio').then(function (r) { estado.inicio = r; return r; });
+  }
+
+  function modalVenderPack(depois) {
+    garantirInicio().then(function (ini) {
+      var c = estado.cliente.cliente;
+      var escolhido = null;
+      abrirModal('<h2>Vender pack a ' + esc(c.nome) + '</h2>' +
+        '<div class="packs">' + ini.packs.map(function (p) {
+          return '<div class="pack" data-pack="' + esc(p.id) + '"><b>' + esc(p.nome) + '</b>' + p.pecas + ' peças<br><b>' + euros(p.preco) + '</b></div>';
+        }).join('') + '</div>' +
+        '<p class="suave">Válido ' + ini.validadeDias + ' dias: até ' + data(somarDias(ini.hoje, ini.validadeDias)) + '. O saldo anterior mantém a sua data.</p>' +
+        blocoFaturacao(c) +
+        '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="confirmarPack">Confirmar venda</button></div>', function () {
+        $$('[data-pack]').forEach(function (d) {
+          d.onclick = function () { $$('[data-pack]').forEach(function (x) { x.classList.remove('sel'); }); d.classList.add('sel'); escolhido = d.getAttribute('data-pack'); };
+        });
+        ligarFaturacao();
+        $('#confirmarPack').onclick = function () {
+          if (!escolhido) { mensagem('Escolhe o pack.', true); return; }
+          var fat = lerFaturacao(); if (!fat) return;
+          api('venderPack', { clienteId: c.id, packId: escolhido, faturacao: fat }).then(function (r) {
+            fecharModal();
+            mensagem('Pack registado.');
+            api('obterCliente', { id: c.id }).then(function (cr) {
+              estado.cliente = cr; desenharCliente();
+              if (depois) depois(); else modalConcluido(r.movimento);
+            });
+          }).catch(function () {});
+        };
+      });
+    }).catch(function () {});
+  }
+
+  function modalConcluido(m) {
+    var fat = m.estadoFatura === 'PENDENTE';
+    abrirModal('<h2>' + (m.tipo === 'PACK' ? 'Pack registado' : 'Entrega registada') + '</h2>' +
+      '<p>Saldo atual: <b>' + estado.cliente.saldo.total + ' peças</b></p>' +
+      (fat ? '<h2 style="margin-top:16px">Fatura a emitir no GESFaturação</h2>' + blocoDadosFatura(m) +
+        '<label for="numFat">Número da fatura (podes gravar mais tarde)</label><input type="text" id="numFat" placeholder="Ex.: FR 2026/123">' : '') +
+      '<div class="rodape"><button class="btn sec" data-fechar>Fechar</button>' + (fat ? '<button class="btn sec" id="gravarFat">Gravar número</button>' : '') +
+      '<button class="btn" id="imprimir">Imprimir talão</button></div>', function () {
+      $('#imprimir').onclick = function () { imprimirTalao(m.id); };
+      if (fat) $('#gravarFat').onclick = function () {
+        api('registarNumeroFatura', { movimentoId: m.id, numFatura: $('#numFat').value }).then(function () {
+          mensagem('Número da fatura gravado.'); fecharModal(); recarregarCliente();
+        }).catch(function () {});
+      };
+    });
+  }
+
+  // ------------------------------------------------------------------ entrega
+  function modalEntrega(pecasIniciais) {
+    garantirInicio().then(function (ini) {
+      var c = estado.cliente.cliente;
+      var saldo = estado.cliente.saldo.total;
+      abrirModal('<h2>Registar entrega — ' + esc(c.nome) + '</h2>' +
+        '<p class="suave">Saldo disponível: <b>' + saldo + ' peças</b>. Conta cada artigo como uma peça (um fato com casaco e calças são 2 peças).</p>' +
+        '<label for="nPecas">Número de peças entregues</label><input type="number" id="nPecas" min="1" step="1" inputmode="numeric" value="' + (pecasIniciais || '') + '" style="font-size:24px">' +
+        '<div id="previsao"></div>' +
+        '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="confirmarEntrega">Confirmar entrega</button></div>', function () {
+        var input = $('#nPecas');
+        function atualizar() {
+          var n = parseInt(input.value, 10) || 0;
+          var doSaldo = Math.min(n, saldo), avulso = n - doSaldo;
+          var valor = Math.round(avulso * ini.precoPeca * 100) / 100;
+          var html = '<div class="resumo"><div><span>Descontadas do saldo</span><b>' + doSaldo + '</b></div>' +
+            '<div><span>Saldo depois da entrega</span><b>' + (saldo - doSaldo) + '</b></div>';
+          if (avulso > 0) html += '<div><span>Peças sem saldo</span><b>' + avulso + '</b></div>';
+          html += '</div>';
+          if (avulso > 0) {
+            html += '<p><b>O cliente não tem saldo para ' + avulso + ' peça(s).</b> Escolhe uma opção:</p>' +
+              '<label class="opcao"><input type="radio" name="excedente" value="cobrar"> Cobrar à peça: ' + avulso + ' × ' + euros(ini.precoPeca) + ' = <b>' + euros(valor) + '</b></label>' +
+              '<label class="opcao"><input type="radio" name="excedente" value="pack"> Vender um pack novo primeiro</label>' +
+              '<div id="fatAvulso" style="display:none">' + blocoFaturacao(c) + '</div>';
+          }
+          $('#previsao').innerHTML = html;
+          $$('input[name=excedente]').forEach(function (r) {
+            r.onchange = function () { $('#fatAvulso').style.display = r.value === 'cobrar' ? 'block' : 'none'; };
+          });
+          ligarFaturacao();
+        }
+        input.oninput = atualizar;
+        atualizar();
+        $('#confirmarEntrega').onclick = function () {
+          var n = parseInt(input.value, 10) || 0;
+          if (n < 1) { mensagem('Escreve o número de peças.', true); return; }
+          var avulso = n - Math.min(n, saldo);
+          var dados = { clienteId: c.id, pecas: n };
+          if (avulso > 0) {
+            var opcao = $('input[name=excedente]:checked');
+            if (!opcao) { mensagem('Escolhe cobrar à peça ou vender um pack.', true); return; }
+            if (opcao.value === 'pack') {
+              fecharModal();
+              modalVenderPack(function () { modalEntrega(n); });
+              return;
+            }
+            var fat = lerFaturacao(); if (!fat) return;
+            dados.cobrarAvulso = true; dados.faturacao = fat;
+          }
+          api('registarEntrega', dados).then(function (r) {
+            fecharModal();
+            api('obterCliente', { id: c.id }).then(function (cr) { estado.cliente = cr; desenharCliente(); modalConcluido(r.movimento); });
+          }).catch(function () {});
+        };
+      });
+    }).catch(function () {});
+  }
+
+  // ------------------------------------------------------------------ ações de administrador
+  function modalLibertar(loteId) {
+    var l = estado.cliente.saldo.expirados.filter(function (x) { return x.id === loteId; })[0];
+    var sugestao = somarDias(estado.cliente.hoje, 30);
+    abrirModal('<h2>Libertar saldo expirado</h2><p>' + esc(l.descricao) + ': <b>' + l.pecas + ' peças</b>, expirou a ' + data(l.dataExpiracao) + '.</p>' +
+      '<label for="novaData">Pode ser usado até</label><input type="date" id="novaData" value="' + sugestao + '" min="' + estado.cliente.hoje + '">' +
+      '<p class="suave">Fica registado que foste tu a autorizar.</p>' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="confLib">Libertar</button></div>', function () {
+      $('#confLib').onclick = function () {
+        api('libertarSaldo', { loteId: loteId, novaData: $('#novaData').value }).then(function () {
+          fecharModal(); mensagem('Saldo libertado.'); recarregarCliente();
+        }).catch(function () {});
+      };
+    });
+  }
+
+  function modalEstender() {
+    abrirModal('<h2>Estender saldo anterior</h2><p>O saldo dos packs anteriores passa a expirar na mesma data do pack atual.</p>' +
+      '<p class="suave">Fica registado que foste tu a autorizar.</p>' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="confEst">Estender</button></div>', function () {
+      $('#confEst').onclick = function () {
+        api('estenderSaldoAnterior', { clienteId: estado.cliente.cliente.id }).then(function () {
+          fecharModal(); mensagem('Saldo estendido.'); recarregarCliente();
+        }).catch(function () {});
+      };
+    });
+  }
+
+  function modalAnular(movId) {
+    var m = estado.cliente.movimentos.filter(function (x) { return x.id === movId; })[0];
+    abrirModal('<h2>Anular movimento</h2><p>' + esc(NOMES_TIPO[m.tipo] || m.tipo) + ' de ' + dataHora(m.dataHora) + ': ' + esc(m.descricao) + '</p>' +
+      '<p class="suave">O saldo volta a ficar como estava antes deste movimento. O registo fica no histórico, riscado.</p>' +
+      '<label for="motivo">Motivo</label><textarea id="motivo"></textarea>' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn perigo" id="confAnular">Anular</button></div>', function () {
+      $('#confAnular').onclick = function () {
+        api('anularMovimento', { movimentoId: movId, motivo: $('#motivo').value }).then(function (r) {
+          fecharModal(); recarregarCliente();
+          if (r.aviso) abrirModal('<h2>Atenção</h2><p>' + esc(r.aviso) + '</p><div class="rodape"><button class="btn" data-fechar>Percebi</button></div>');
+          else mensagem('Movimento anulado.');
+        }).catch(function () {});
+      };
+    });
+  }
+
+  function modalMeuPin() {
+    abrirModal('<h2>Alterar o meu PIN</h2>' +
+      '<label for="pinAtual">PIN atual</label><input type="password" id="pinAtual" inputmode="numeric">' +
+      '<label for="pinNovo">PIN novo (4 a 8 algarismos)</label><input type="password" id="pinNovo" inputmode="numeric">' +
+      '<label for="pinNovo2">Repete o PIN novo</label><input type="password" id="pinNovo2" inputmode="numeric">' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="gravarPin">Gravar</button></div>', function () {
+      $('#gravarPin').onclick = function () {
+        if ($('#pinNovo').value !== $('#pinNovo2').value) { mensagem('Os PINs novos não são iguais.', true); return; }
+        api('alterarMeuPin', { atual: $('#pinAtual').value, novo: $('#pinNovo').value }).then(function () {
+          fecharModal(); mensagem('PIN alterado.');
+        }).catch(function () {});
+      };
+    });
+  }
+
+  // ------------------------------------------------------------------ talão
+  function imprimirTalao(movimentoId) {
+    api('dadosTalao', { clienteId: estado.cliente.cliente.id, movimentoId: movimentoId }).then(function (t) {
+      var L = function (a, b, cls) { return '<div class="l' + (cls ? ' ' + cls : '') + '"><span>' + esc(a) + '</span><span>' + esc(b) + '</span></div>'; };
+      var html = '<div class="c t">' + esc(t.loja.nome) + '</div>' +
+        '<div class="c">' + esc(t.loja.morada) + '<br>' + esc(t.loja.codigoPostal) + '<br>Tel. ' + esc(t.loja.telefone) + '<br>' + esc(t.loja.horario) + '</div><hr>' +
+        '<div class="c t">TALÃO DE CONTROLO</div><hr>' +
+        L('Cliente:', t.cliente) + L('Data:', t.dataHora);
+      if (t.linhasHoje.length) html += '<hr>' + t.linhasHoje.map(function (x) { return L(x[0], x[1], x[0].indexOf('  ') === 0 ? 'sub' : ''); }).join('');
+      html += '<hr><div class="t">SALDO</div>';
+      if (t.saldos.length) {
+        html += t.saldos.map(function (s) {
+          return L(s.rotulo, s.pecas + ' peças') + '<div class="sub">expira em ' + data(s.dataExpiracao) + '</div>';
+        }).join('');
+      } else {
+        html += '<div>Sem saldo disponível.</div>';
+      }
+      html += '<hr>' + L('SALDO TOTAL:', t.total + ' peças', 'total') + '<hr>' +
+        '<div>Atendido por: ' + esc(t.operador) + '</div><div class="c" style="margin-top:8px">Obrigado pela preferência.</div>';
+      $('#talao').innerHTML = html;
+      setTimeout(function () { window.print(); }, 100);
+    }).catch(function () {});
+  }
+
+  // ------------------------------------------------------------------ relatórios (administrador)
+  function ecraRelatorios(mes) {
+    mes = mes || new Date().toISOString().slice(0, 7);
+    moldura('<div class="cartao linha"><h1 style="margin-right:auto">Relatórios</h1><label for="mes" style="margin:0">Mês</label>' +
+      '<input type="month" id="mes" value="' + mes + '" style="width:auto"></div><div id="rel" class="vazio">A carregar…</div>');
+    $('#mes').onchange = function () { ecraRelatorios($('#mes').value); };
+    api('relatorio', { mes: mes }).then(function (r) {
+      var cartaoNum = function (t, v) { return '<div class="cartao"><span class="suave">' + t + '</span><div class="saldo-grande" style="font-size:30px">' + v + '</div></div>'; };
+      $('#rel').outerHTML =
+        '<div class="grelha">' + cartaoNum('Total vendido', euros(r.valorTotal)) + cartaoNum('Faturado', euros(r.valorFaturado)) +
+        cartaoNum('Sem fatura', euros(r.valorNaoFaturado)) + cartaoNum('Faturas por emitir', r.faturasPorEmitir) + '</div>' +
+        '<div class="grelha"><div class="cartao"><h2>Packs vendidos</h2>' +
+        (r.packs.length ? '<table><tr><th>Pack</th><th class="num">Quantidade</th><th class="num">Valor</th></tr>' + r.packs.map(function (p) {
+          return '<tr><td>' + esc(p.nome) + '</td><td class="num">' + p.quantidade + '</td><td class="num">' + euros(p.valor) + '</td></tr>';
+        }).join('') + '<tr><th>Total</th><th></th><th class="num">' + euros(r.valorPacks) + '</th></tr></table>' : '<p class="vazio">Nenhum pack vendido.</p>') + '</div>' +
+        '<div class="cartao"><h2>Peças</h2><table><tr><td>Peças entregues</td><td class="num"><b>' + r.pecasEntregues + '</b></td></tr>' +
+        '<tr><td>Descontadas de packs</td><td class="num">' + r.pecasDoSaldo + '</td></tr>' +
+        '<tr><td>Cobradas à peça</td><td class="num">' + r.pecasAvulso + '</td></tr>' +
+        '<tr><td>Valor à peça</td><td class="num">' + euros(r.valorAvulso) + '</td></tr></table></div></div>' +
+        '<div class="cartao"><h2>Alertas de expiração</h2>' + (r.alertas.length ? '<table><tr><th>Data</th><th>Cliente</th><th>Email</th><th class="num">Peças</th><th>Expira</th><th>Resultado</th></tr>' +
+          r.alertas.map(function (a) {
+            return '<tr><td>' + dataHora(a.dataHora) + '</td><td>' + esc(a.clienteNome) + '</td><td>' + esc(a.email) + '</td><td class="num">' + esc(a.pecas) + '</td><td>' + data(a.dataExpiracao) + '</td><td>' + esc(a.resultado) + '</td></tr>';
+          }).join('') + '</table>' : '<p class="vazio">Nenhum alerta neste mês.</p>') + '</div>';
+    }).catch(function () {});
+  }
+
+  // ------------------------------------------------------------------ definições (administrador)
+  function ecraDefinicoes() {
+    moldura('<p class="vazio">A carregar…</p>');
+    api('obterDefinicoes').then(function (d) {
+      var c = d.config;
+      var campo = function (id, rot, v, tipo) { return '<label for="' + id + '">' + rot + '</label><input type="' + (tipo || 'text') + '" id="' + id + '" value="' + esc(v) + '">'; };
+      moldura(
+        '<h1 style="margin-bottom:14px">Definições</h1><div class="grelha">' +
+        '<div class="cartao"><h2>Preços e alertas</h2>' +
+        campo('dPreco', 'Preço à peça (€, IVA incluído)', String(c.precoPeca).replace('.', ',')) +
+        '<label for="dAlertas">Alertas por email aos clientes</label><select id="dAlertas"><option value="NAO">Desligados</option><option value="SIM">Ligados</option></select>' +
+        campo('dDias', 'Enviar quantos dias antes de expirar', c.diasAlerta, 'number') +
+        campo('dTeste', 'Email de teste (se preenchido, os alertas vão só para este email)', c.emailTesteAlertas, 'email') +
+        '<p class="suave">Validade dos packs: ' + esc(c.validadeDias) + ' dias. Faturação: modo ' + (c.faturacaoModo === 'API' ? 'automático' : 'manual (número escrito na app)') + '.</p></div>' +
+        '<div class="cartao"><h2>Dados da loja (talão e emails)</h2>' +
+        campo('dNome', 'Nome', c.lojaNome) + campo('dMorada', 'Morada', c.lojaMorada) + campo('dCp', 'Código postal e localidade', c.lojaCodigoPostal) +
+        campo('dTel', 'Telefone', c.lojaTelefone) + campo('dHorario', 'Horário', c.lojaHorario) + '</div></div>' +
+        '<div class="cartao"><button class="btn" id="gravarDef">Gravar preços, alertas e dados da loja</button></div>' +
+        '<div class="cartao"><h2>Packs</h2><table id="tPacks"><tr><th>Nome</th><th>Peças</th><th>Preço (€)</th><th>Ativo</th><th></th></tr>' +
+        d.packs.map(function (p) { return linhaPack(p); }).join('') + linhaPack({}) + '</table></div>' +
+        '<div class="cartao"><h2>Utilizadores</h2><table><tr><th>Nome</th><th>Nível</th><th>Ativo</th><th></th></tr>' +
+        d.utilizadores.map(function (u) { return linhaUtilizador(u); }).join('') + linhaUtilizador({}) + '</table></div>'
+      );
+      $('#dAlertas').value = c.alertasAtivos === 'SIM' ? 'SIM' : 'NAO';
+      $('#gravarDef').onclick = function () {
+        api('guardarDefinicoes', {
+          precoPeca: $('#dPreco').value, alertasAtivos: $('#dAlertas').value, diasAlerta: $('#dDias').value, emailTesteAlertas: $('#dTeste').value,
+          lojaNome: $('#dNome').value, lojaMorada: $('#dMorada').value, lojaCodigoPostal: $('#dCp').value, lojaTelefone: $('#dTel').value, lojaHorario: $('#dHorario').value
+        }).then(function () { estado.inicio = null; mensagem('Definições gravadas.'); }).catch(function () {});
+      };
+      $$('[data-gravar-pack]').forEach(function (b) {
+        b.onclick = function () {
+          var tr = b.closest('tr');
+          api('guardarPack', { id: b.getAttribute('data-gravar-pack'), nome: $('.pNome', tr).value, pecas: $('.pPecas', tr).value, preco: $('.pPreco', tr).value, ativo: $('.pAtivo', tr).checked })
+            .then(function () { estado.inicio = null; mensagem('Pack gravado.'); ecraDefinicoes(); }).catch(function () {});
+        };
+      });
+      $$('[data-gravar-ut]').forEach(function (b) {
+        b.onclick = function () {
+          var tr = b.closest('tr');
+          api('guardarUtilizador', { id: b.getAttribute('data-gravar-ut'), nome: $('.uNome', tr).value, nivel: $('.uNivel', tr).value, ativo: $('.uAtivo', tr).checked })
+            .then(function (r) {
+              if (r.pinNovo) mostrarPin($('.uNome', tr).value, r.pinNovo); else mensagem('Utilizador gravado.');
+              ecraDefinicoes();
+            }).catch(function () {});
+        };
+      });
+      $$('[data-pin-ut]').forEach(function (b) {
+        b.onclick = function () {
+          var nome = $('.uNome', b.closest('tr')).value;
+          if (!confirm('Gerar um PIN novo para ' + nome + '? O PIN antigo deixa de funcionar.')) return;
+          api('redefinirPin', { id: b.getAttribute('data-pin-ut') }).then(function (r) { mostrarPin(nome, r.pinNovo); }).catch(function () {});
+        };
+      });
+    }).catch(function () {});
+  }
+
+  function linhaPack(p) {
+    var novo = !p.id;
+    return '<tr><td><input type="text" class="pNome" value="' + esc(p.nome) + '" placeholder="' + (novo ? 'Novo pack' : '') + '"></td>' +
+      '<td><input type="number" class="pPecas" value="' + esc(p.pecas) + '" style="width:90px"></td>' +
+      '<td><input type="text" class="pPreco" value="' + esc(String(p.preco || '').replace('.', ',')) + '" style="width:100px"></td>' +
+      '<td><input type="checkbox" class="pAtivo"' + (novo || p.ativo === 'SIM' ? ' checked' : '') + '></td>' +
+      '<td><button class="btn peq" data-gravar-pack="' + esc(p.id || '') + '">' + (novo ? 'Acrescentar' : 'Gravar') + '</button></td></tr>';
+  }
+
+  function linhaUtilizador(u) {
+    var novo = !u.id;
+    return '<tr><td><input type="text" class="uNome" value="' + esc(u.nome) + '" placeholder="' + (novo ? 'Novo utilizador' : '') + '"></td>' +
+      '<td><select class="uNivel"><option value="OPERADOR"' + (u.nivel === 'OPERADOR' ? ' selected' : '') + '>Operador</option><option value="ADMIN"' + (u.nivel === 'ADMIN' ? ' selected' : '') + '>Administrador</option></select></td>' +
+      '<td><input type="checkbox" class="uAtivo"' + (novo || u.ativo === 'SIM' ? ' checked' : '') + '></td>' +
+      '<td class="linha"><button class="btn peq" data-gravar-ut="' + esc(u.id || '') + '">' + (novo ? 'Acrescentar' : 'Gravar') + '</button>' +
+      (novo ? '' : '<button class="btn sec peq" data-pin-ut="' + esc(u.id) + '">Novo PIN</button>') + '</td></tr>';
+  }
+
+  function mostrarPin(nome, pin) {
+    abrirModal('<h2>PIN de ' + esc(nome) + '</h2><p style="font-size:32px;font-weight:700;letter-spacing:4px">' + esc(pin) + '</p>' +
+      '<p class="suave">Entrega este PIN à pessoa. Não volta a ser mostrado. A pessoa pode alterá-lo em "O meu PIN".</p>' +
+      '<div class="rodape"><button class="btn" data-fechar>Fechar</button></div>');
+  }
+
+  // ------------------------------------------------------------------ arranque
+  var guardada = memoria.ler();
+  if (guardada) {
+    try { var s = JSON.parse(guardada); estado.token = s.token; estado.utilizador = s.utilizador; irPara('inicio'); }
+    catch (e) { mostrarEntrada(); }
+  } else {
+    mostrarEntrada();
+  }
+})();
+</script>
+</body>
+</html>
