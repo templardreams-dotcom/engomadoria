@@ -14,7 +14,11 @@
   body { margin: 0; font: 16px/1.45 "Segoe UI", Roboto, Arial, sans-serif; color: var(--tinta); background: var(--fundo); }
   button, input, select, textarea { font: inherit; }
   header { background: var(--marca); color: #fff; display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap; }
-  header .marca { font-weight: 700; letter-spacing: .5px; margin-right: auto; }
+  header .marca { font-weight: 700; letter-spacing: .5px; margin-right: auto; display: flex; align-items: center; gap: 10px; font-size: 18px; }
+  .logo { display: block; flex: none; }
+  #talao .logo { margin: 0 auto 4px; }
+  .logo-entrada { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+  .logo-nome { font-size: 26px; font-weight: 700; color: var(--marca); margin-top: 6px; letter-spacing: .5px; }
   header nav { display: flex; gap: 6px; flex-wrap: wrap; }
   header nav button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
   header nav button:hover, header nav button.ativo { background: rgba(255,255,255,.15); }
@@ -187,9 +191,26 @@
   }
   function fecharModal() { modais.innerHTML = ''; }
 
+  // ------------------------------------------------------------------ logo
+  // Redesenho em vetor do logo da porta da loja (FastWash 2). cor = traço, fundo = cor por trás.
+  var contaLogo = 0;
+  function logoSvg(tamanho, cor, fundo) {
+    var id = 'lg' + (++contaLogo);
+    return '<svg class="logo" width="' + tamanho + '" height="' + tamanho + '" viewBox="0 0 200 200" role="img" aria-label="FastWash 2">' +
+      '<defs><clipPath id="' + id + '"><circle cx="100" cy="100" r="89"/></clipPath></defs>' +
+      '<circle cx="100" cy="100" r="94" fill="none" stroke="' + cor + '" stroke-width="9"/>' +
+      '<circle cx="100" cy="100" r="78" fill="' + cor + '"/>' +
+      '<path d="M40 74 Q70 52 100 60 Q125 66 150 54 Q158 60 162 72" fill="none" stroke="' + fundo + '" stroke-width="4" stroke-linecap="round"/>' +
+      '<path d="M42 140 Q95 182 158 132" fill="none" stroke="' + fundo + '" stroke-width="7" stroke-linecap="round"/>' +
+      '<path d="M60 150 Q105 172 146 146" fill="none" stroke="' + fundo + '" stroke-width="3" stroke-linecap="round"/>' +
+      '<rect x="0" y="80" width="200" height="42" fill="' + fundo + '" clip-path="url(#' + id + ')"/>' +
+      '<text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" font-style="italic" fill="' + cor + '" textLength="164" lengthAdjust="spacingAndGlyphs">FastWash 2</text>' +
+      '</svg>';
+  }
+
   // ------------------------------------------------------------------ entrada
   function mostrarEntrada() {
-    app.innerHTML = '<div class="entrada cartao"><h1>Fastwash Engomadoria</h1><p class="suave">Quem és?</p><div class="nomes" id="nomes">A carregar…</div></div>';
+    app.innerHTML = '<div class="entrada cartao"><div class="logo-entrada">' + logoSvg(120, '#2c3136', '#ffffff') + '<div class="logo-nome">Engomadoria</div></div><p class="suave">Quem és?</p><div class="nomes" id="nomes">A carregar…</div></div>';
     servidor('listarNomesEntrada', []).then(function (nomes) {
       $('#nomes').innerHTML = nomes.map(function (n) {
         return '<button class="btn sec grande" data-id="' + esc(n.id) + '">' + esc(n.nome) + '</button>';
@@ -231,7 +252,7 @@
     var nav = [['inicio', 'Início']];
     if (eAdmin()) nav.push(['relatorios', 'Relatórios'], ['definicoes', 'Definições']);
     app.innerHTML =
-      '<header><span class="marca">FASTWASH ENGOMADORIA</span><nav>' +
+      '<header><span class="marca">' + logoSvg(38, '#ffffff', '#2c3136') + '<span>Engomadoria</span></span><nav>' +
       nav.map(function (n) { return '<button data-ir="' + n[0] + '" class="' + (estado.ecra === n[0] ? 'ativo' : '') + '">' + n[1] + '</button>'; }).join('') +
       '<button id="meuPin">O meu PIN</button><button id="sair">Sair</button></nav>' +
       '<span class="quem">' + esc(u.nome) + ' · ' + (u.nivel === 'ADMIN' ? 'Administrador' : 'Operador') + '</span></header>' +
@@ -642,7 +663,8 @@
   function imprimirTalao(movimentoId) {
     api('dadosTalao', { clienteId: estado.cliente.cliente.id, movimentoId: movimentoId }).then(function (t) {
       var L = function (a, b, cls) { return '<div class="l' + (cls ? ' ' + cls : '') + '"><span>' + esc(a) + '</span><span>' + esc(b) + '</span></div>'; };
-      var html = '<div class="c t">' + esc(t.loja.nome) + '</div>' +
+      var html = '<div class="c">' + logoSvg(96, '#000000', '#ffffff') + '</div>' +
+        '<div class="c t">' + esc(t.loja.nome) + '</div>' +
         '<div class="c">' + esc(t.loja.morada) + '<br>' + esc(t.loja.codigoPostal) + '<br>Tel. ' + esc(t.loja.telefone) + '<br>' + esc(t.loja.horario) + '</div><hr>' +
         '<div class="c t">TALÃO DE CONTROLO</div><hr>' +
         L('Cliente:', t.cliente) + L('Data:', t.dataHora);
