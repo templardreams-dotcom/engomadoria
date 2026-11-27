@@ -438,6 +438,7 @@
 
   function estadoFatura(m) {
     if (m.estadoFatura === 'EMITIDA') return '<span class="etiqueta e-ok">' + esc(m.numFatura) + '</span>';
+    if (m.estadoFatura === 'RASCUNHO') return '<span class="etiqueta e-aviso">Rascunho ' + esc(m.numFatura) + '</span>';
     if (m.estadoFatura === 'PENDENTE') return '<span class="etiqueta e-aviso">Por emitir</span>';
     if (m.valor > 0) return '<span class="etiqueta e-neutra">Sem fatura</span>';
     return '';
@@ -538,7 +539,10 @@
     var fat = m.estadoFatura === 'PENDENTE';
     abrirModal('<h2>' + (m.tipo === 'PACK' ? 'Pack registado' : String(m.descricao).indexOf('Venda à peça') === 0 ? 'Venda à peça registada' : 'Entrega registada') + '</h2>' +
       '<p>Saldo atual: <b>' + estado.cliente.saldo.total + ' peças</b></p>' +
-      (fat ? '<h2 style="margin-top:16px">Fatura a emitir no GESFaturação</h2>' + blocoDadosFatura(m) +
+      (m.estadoFatura === 'EMITIDA' && m.numFatura ? '<p class="etiqueta e-ok">Fatura emitida no GESFaturação: ' + esc(m.numFatura) + '</p>' : '') +
+      (m.estadoFatura === 'RASCUNHO' ? '<p class="etiqueta e-aviso">Fatura criada em rascunho no GESFaturação' + (m.numFatura ? ': ' + esc(m.numFatura) : '') + '. Finaliza-a lá.</p>' : '') +
+      (m.avisoFatura ? '<p class="etiqueta e-erro">' + esc(m.avisoFatura) + '</p>' : '') +
+      (fat ?'<h2 style="margin-top:16px">Fatura a emitir no GESFaturação</h2>' + blocoDadosFatura(m) +
         '<label for="numFat">Número da fatura (podes gravar mais tarde)</label><input type="text" id="numFat" placeholder="Ex.: FR 2026/123">' : '') +
       '<div class="rodape"><button class="btn sec" data-fechar>Fechar</button>' + (fat ? '<button class="btn sec" id="gravarFat">Gravar número</button>' : '') +
       '<button class="btn" id="imprimir">Imprimir talão</button></div>', function () {
@@ -827,6 +831,23 @@
         campo('dNome', 'Nome', c.lojaNome) + campo('dMorada', 'Morada', c.lojaMorada) + campo('dCp', 'Código postal e localidade', c.lojaCodigoPostal) +
         campo('dTel', 'Telefone', c.lojaTelefone) + campo('dHorario', 'Horário', c.lojaHorario) + '</div></div>' +
         '<div class="cartao"><button class="btn" id="gravarDef">Gravar preços, alertas e dados da loja</button></div>' +
+        '<div class="cartao"><h2>GESFaturação</h2>' +
+        (d.gesLigado
+          ? '<p><span class="etiqueta e-ok">Ligado</span> As vendas com fatura são criadas automaticamente no GESFaturação.</p>' +
+            '<button class="btn sec peq" id="gesDesligar">Desligar</button>'
+          : '<p><span class="etiqueta e-neutra">Desligado</span> As faturas emitem-se à mão no GESFaturação.</p>' +
+            '<p class="suave">Entra com o teu utilizador do GESFaturação. A palavra-passe não fica guardada na app.</p>' +
+            campo('gesUtil', 'Utilizador do GESFaturação', '') +
+            '<label for="gesPass">Palavra-passe</label><input type="password" id="gesPass" autocomplete="off">' +
+            '<p style="margin-top:10px"><button class="btn" id="gesLigar">Ligar ao GESFaturação</button></p>') +
+        '<h2 style="margin-top:16px">Como emitir</h2>' +
+        '<label for="gesFinalizar">Faturas criadas pela app</label><select id="gesFinalizar">' +
+          '<option value="NAO">Em rascunho (finalizo eu no GESFaturação)</option>' +
+          '<option value="SIM">Finalizadas logo (comunicadas à AT)</option></select>' +
+        '<div class="grelha" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">' +
+          '<div>' + campo('gesSerie', 'N.º da série (ENG = 4)', c.gesSerie) + '</div><div>' + campo('gesArtigo', 'N.º do artigo (Serviço Geral = 3)', c.gesArtigo) + '</div>' +
+          '<div>' + campo('gesIva', 'N.º da taxa de IVA (23% = 1)', c.gesIva) + '</div><div>' + campo('gesTaxaIva', 'Taxa de IVA (%)', c.gesTaxaIva) + '</div></div>' +
+        '<p><button class="btn sec" id="gesGravar">Gravar opções de faturação</button></p></div>' +
         '<div class="cartao"><h2>Packs</h2><p class="suave">À venda só entre as datas "Desde" e "Até" (inclusive). Data vazia = sem limite.</p>' +
         '<div style="overflow-x:auto"><table id="tPacks"><tr><th>Nome</th><th>Peças</th><th>Preço (€)</th><th>Desde</th><th>Até</th><th>Ativo</th><th></th></tr>' +
         d.packs.slice().sort(function (a, b) { return (a.ate || '9999') < (b.ate || '9999') ? -1 : (a.ate || '9999') > (b.ate || '9999') ? 1 : Number(a.pecas) - Number(b.pecas); })
@@ -838,6 +859,23 @@
         d.utilizadores.map(function (u) { return linhaUtilizador(u); }).join('') + linhaUtilizador({}) + '</table></div>'
       );
       $('#dAlertas').value = c.alertasAtivos === 'SIM' ? 'SIM' : 'NAO';
+      $('#gesFinalizar').value = c.gesFinalizar === 'SIM' ? 'SIM' : 'NAO';
+      if ($('#gesLigar')) $('#gesLigar').onclick = function () {
+        api('gesLigar', { utilizador: $('#gesUtil').value, palavraPasse: $('#gesPass').value }).then(function (r) {
+          $('#gesPass').value = '';
+          mensagem('Ligado ao GESFaturação' + (r.empresa ? ' (' + r.empresa + ')' : '') + '.');
+          ecraDefinicoes();
+        }).catch(function () { if ($('#gesPass')) $('#gesPass').value = ''; });
+      };
+      if ($('#gesDesligar')) $('#gesDesligar').onclick = function () {
+        api('gesDesligar').then(function () { mensagem('GESFaturação desligado.'); ecraDefinicoes(); }).catch(function () {});
+      };
+      $('#gesGravar').onclick = function () {
+        if ($('#gesFinalizar').value === 'SIM' && !confirmarFinalizar()) return;
+        api('guardarDefinicoes', { gesFinalizar: $('#gesFinalizar').value, gesSerie: $('#gesSerie').value, gesArtigo: $('#gesArtigo').value,
+          gesIva: $('#gesIva').value, gesTaxaIva: $('#gesTaxaIva').value })
+          .then(function () { mensagem('Opções de faturação gravadas.'); }).catch(function () {});
+      };
       var tempoDef;
       $('#dProcura').oninput = function () { clearTimeout(tempoDef); tempoDef = setTimeout(procurarParaApagar, 250); };
       procurarParaApagar();
@@ -872,6 +910,11 @@
         };
       });
     }).catch(function () {});
+  }
+
+  function confirmarFinalizar() {
+    return window.confirm('Com esta opção, cada venda com fatura é emitida e comunicada à AT no momento. ' +
+      'Uma fatura emitida não se apaga: só se anula com nota de crédito. Confirmas?');
   }
 
   // Lista de clientes em Definições, com o botão Apagar (só administrador).
