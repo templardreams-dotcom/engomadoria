@@ -22,6 +22,18 @@
   .logo-entrada { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
   .logo-nome { font-size: 26px; font-weight: 600; color: #505050; margin: 6px 0 8px; letter-spacing: .5px; }
   .ferro { display: block; margin: 0 auto; }
+  .grafico-dias { display: flex; align-items: stretch; gap: 3px; height: 220px; margin-top: 12px; }
+  .gb-col { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: pointer; border-radius: 4px; }
+  .gb-col:hover { background: #f1f4f7; }
+  .gb-area { flex: 1; position: relative; border-bottom: 1px solid var(--linha); margin-top: 16px; }
+  .gb-barra { position: absolute; left: 0; right: 0; bottom: 0; background: #9db8cf; border-radius: 3px 3px 0 0; }
+  .gb-sel .gb-barra { background: var(--acao); }
+  .gb-valor { position: absolute; left: -6px; right: -6px; margin-bottom: 2px; font-size: 10px; text-align: center; color: var(--suave); white-space: nowrap; }
+  .gb-dia { font-size: 11px; text-align: center; color: var(--suave); padding-top: 3px; }
+  .gb-sel .gb-dia, .gb-sel .gb-valor { color: var(--acao); font-weight: 700; }
+  .gb-hoje .gb-dia { text-decoration: underline; }
+  .gb-futuro .gb-dia { opacity: .45; }
+  @media (max-width: 600px) { .gb-valor { display: none; } .gb-sel .gb-valor { display: block; } .gb-dia { font-size: 9px; } .grafico-dias { gap: 1px; } }
   header nav { display: flex; gap: 6px; flex-wrap: wrap; }
   header nav button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
   header nav button:hover, header nav button.ativo { background: rgba(255,255,255,.15); }
@@ -272,8 +284,7 @@
   function ecraInicio() {
     moldura('<div class="cartao"><div class="linha"><input type="text" id="procura" placeholder="Procurar cliente por nome, NIF ou telemóvel" style="flex:1;min-width:240px">' +
       '<button class="btn" id="novoCliente">Novo cliente</button></div><div id="resultados" style="margin-top:12px"></div></div>' +
-      '<div class="grelha"><div class="cartao"><h2>Saldos a expirar (próximos 7 dias)</h2><div id="aExpirar" class="vazio">A carregar…</div></div>' +
-      '<div class="cartao"><h2>Faturas por emitir no GESFaturação</h2><div id="pendentes" class="vazio">A carregar…</div></div></div>');
+      '<div class="cartao"><h2>Saldos a expirar (próximos 7 dias)</h2><div id="aExpirar" class="vazio">A carregar…</div></div>');
     var caixa = $('#procura');
     var tempo;
     caixa.oninput = function () { clearTimeout(tempo); tempo = setTimeout(procurar, 250); };
@@ -283,9 +294,7 @@
     api('inicio').then(function (r) {
       estado.inicio = r;
       $('#aExpirar').outerHTML = tabelaAExpirar(r.aExpirar);
-      $('#pendentes').outerHTML = tabelaPendentes(r.faturasPendentes, true);
       ligarLinhasCliente();
-      ligarBotoesFatura(r.faturasPendentes, ecraInicio);
     }).catch(function () {});
   }
 
@@ -409,7 +418,6 @@
       '</div></div>' +
       '<div class="cartao linha"><button class="btn grande" id="entrega">Registar entrega</button><button class="btn grande" id="vender">Vender pack</button>' +
       '<button class="btn grande sec" id="talaoBtn">Imprimir talão</button></div>' +
-      (pendentes.length ? '<div class="cartao"><h2>Faturas por emitir</h2>' + tabelaPendentes(pendentes, false) + '</div>' : '') +
       '<div class="cartao"><h2>Histórico</h2>' + tabelaHistorico(r.movimentos) + '</div>'
     );
     $('#voltar').onclick = function () { irPara('inicio'); };
@@ -684,16 +692,32 @@
   }
 
   // ------------------------------------------------------------------ relatórios (administrador)
-  function ecraRelatorios(mes) {
-    mes = mes || new Date().toISOString().slice(0, 7);
-    moldura('<div class="cartao linha"><h1 style="margin-right:auto">Relatórios</h1><label for="mes" style="margin:0">Mês</label>' +
-      '<input type="month" id="mes" value="' + mes + '" style="width:auto"></div><div id="rel" class="vazio">A carregar…</div>');
-    $('#mes').onchange = function () { ecraRelatorios($('#mes').value); };
+  function ecraRelatorios(dia) {
+    var agora = new Date();
+    var hojeLocal = agora.getFullYear() + '-' + ('0' + (agora.getMonth() + 1)).slice(-2) + '-' + ('0' + agora.getDate()).slice(-2);
+    dia = dia || hojeLocal;
+    var mes = dia.slice(0, 7);
+    var nomeMes = new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 1, 1).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+    moldura('<div class="cartao linha"><h1 style="margin-right:auto">Relatórios</h1><label for="dia" style="margin:0">Dia</label>' +
+      '<input type="date" id="dia" value="' + dia + '" style="width:auto">' +
+      (dia !== hojeLocal ? '<button class="btn sec" id="relHoje">Hoje</button>' : '') + '</div><div id="rel" class="vazio">A carregar…</div>');
+    $('#dia').onchange = function () { if ($('#dia').value) ecraRelatorios($('#dia').value); };
+    if ($('#relHoje')) $('#relHoje').onclick = function () { ecraRelatorios(hojeLocal); };
     api('relatorio', { mes: mes }).then(function (r) {
-      var cartaoNum = function (t, v) { return '<div class="cartao"><span class="suave">' + t + '</span><div class="saldo-grande" style="font-size:30px">' + v + '</div></div>'; };
+      var cartaoNum = function (t, v, extra) { return '<div class="cartao"><span class="suave">' + t + '</span><div class="saldo-grande" style="font-size:30px">' + v + '</div>' + (extra ? '<span class="suave">' + extra + '</span>' : '') + '</div>'; };
+      var porDia = r.porDia || [];
+      var d = porDia.filter(function (x) { return x.data === dia; })[0] ||
+        { packsVendidos: 0, valorPacks: 0, pecasEntregues: 0, pecasAvulso: 0, valorAvulso: 0, valorTotal: 0, valorFaturado: 0, valorNaoFaturado: 0 };
       $('#rel').outerHTML =
-        '<div class="grelha">' + cartaoNum('Total vendido', euros(r.valorTotal)) + cartaoNum('Faturado', euros(r.valorFaturado)) +
-        cartaoNum('Sem fatura', euros(r.valorNaoFaturado)) + cartaoNum('Faturas por emitir', r.faturasPorEmitir) + '</div>' +
+        '<h2>' + (dia === hojeLocal ? 'Hoje, ' : 'Dia ') + data(dia) + '</h2>' +
+        '<div class="grelha">' + cartaoNum('Total vendido no dia', euros(d.valorTotal), 'Faturado ' + euros(d.valorFaturado) + ' · sem fatura ' + euros(d.valorNaoFaturado)) +
+        cartaoNum('Packs vendidos', d.packsVendidos, euros(d.valorPacks)) +
+        cartaoNum('Peças cobradas à peça', d.pecasAvulso, euros(d.valorAvulso)) +
+        cartaoNum('Peças entregues', d.pecasEntregues) + '</div>' +
+        '<h2>Mês de ' + esc(nomeMes) + '</h2>' +
+        '<div class="grelha">' + cartaoNum('Total vendido no mês', euros(r.valorTotal)) + cartaoNum('Faturado', euros(r.valorFaturado)) +
+        cartaoNum('Sem fatura', euros(r.valorNaoFaturado)) + '</div>' +
+        graficoDias(mes, porDia, dia, hojeLocal, r.valorTotal) +
         '<div class="grelha"><div class="cartao"><h2>Packs vendidos</h2>' +
         (r.packs.length ? '<table><tr><th>Pack</th><th class="num">Quantidade</th><th class="num">Valor</th></tr>' + r.packs.map(function (p) {
           return '<tr><td>' + esc(p.nome) + '</td><td class="num">' + p.quantidade + '</td><td class="num">' + euros(p.valor) + '</td></tr>';
@@ -706,7 +730,35 @@
           r.alertas.map(function (a) {
             return '<tr><td>' + dataHora(a.dataHora) + '</td><td>' + esc(a.clienteNome) + '</td><td>' + esc(a.email) + '</td><td class="num">' + esc(a.pecas) + '</td><td>' + data(a.dataExpiracao) + '</td><td>' + esc(a.resultado) + '</td></tr>';
           }).join('') + '</table>' : '<p class="vazio">Nenhum alerta neste mês.</p>') + '</div>';
+      $$('#grafDias [data-dia]').forEach(function (b) { b.onclick = function () { ecraRelatorios(b.getAttribute('data-dia')); }; });
     }).catch(function () {});
+  }
+
+  // Gráfico de barras: uma barra por cada dia do mês, altura = total vendido nesse dia.
+  function graficoDias(mes, porDia, diaSel, hojeLocal, totalMes) {
+    var ano = Number(mes.slice(0, 4)), m = Number(mes.slice(5, 7));
+    var nDias = new Date(ano, m, 0).getDate();
+    var valores = {};
+    porDia.forEach(function (x) { valores[x.data] = x; });
+    var max = 0;
+    porDia.forEach(function (x) { if (x.valorTotal > max) max = x.valorTotal; });
+    var barras = '';
+    for (var i = 1; i <= nDias; i++) {
+      var d = mes + '-' + ('0' + i).slice(-2);
+      var x = valores[d] || { valorTotal: 0, packsVendidos: 0, pecasAvulso: 0 };
+      var alt = max > 0 ? Math.round(x.valorTotal / max * 100) : 0;
+      var cls = 'gb-col' + (d === diaSel ? ' gb-sel' : '') + (d === hojeLocal ? ' gb-hoje' : '') + (d > hojeLocal ? ' gb-futuro' : '');
+      var dica = data(d) + ': ' + euros(x.valorTotal) + ' (' + x.packsVendidos + ' packs, ' + x.pecasAvulso + ' peças à peça)';
+      var h = x.valorTotal > 0 ? Math.max(alt, 2) : 0;
+      barras += '<div class="' + cls + '" data-dia="' + d + '" title="' + esc(dica) + '">' +
+        '<div class="gb-area"><div class="gb-barra" style="height:' + h + '%"></div>' +
+        (x.valorTotal > 0 ? '<div class="gb-valor" style="bottom:' + h + '%">' + Math.round(x.valorTotal) + '</div>' : '') + '</div>' +
+        '<div class="gb-dia">' + i + '</div></div>';
+    }
+    return '<div class="cartao"><div class="linha" style="align-items:baseline"><h2 style="margin-right:auto">Vendas por dia</h2>' +
+      '<span class="suave">Total do mês</span><b style="font-size:22px">' + euros(totalMes) + '</b></div>' +
+      '<div class="grafico-dias" id="grafDias">' + barras + '</div>' +
+      '<p class="suave" style="margin:8px 0 0">Valores em euros, IVA incluído. Clica numa barra para ver o detalhe desse dia em cima.</p></div>';
   }
 
   // ------------------------------------------------------------------ definições (administrador)
