@@ -417,6 +417,7 @@
       (podeEstender ? '<p style="margin-top:12px"><button class="btn sec peq" id="estender">Estender saldo anterior até à data do pack atual</button></p>' : '') +
       '</div></div>' +
       '<div class="cartao linha"><button class="btn grande" id="entrega">Registar entrega</button><button class="btn grande" id="vender">Vender pack</button>' +
+      '<button class="btn grande" id="venderPeca">Vender à peça</button>' +
       '<button class="btn grande sec" id="talaoBtn">Imprimir talão</button></div>' +
       '<div class="cartao"><h2>Histórico</h2>' + tabelaHistorico(r.movimentos) + '</div>'
     );
@@ -424,6 +425,7 @@
     $('#editar').onclick = function () { modalCliente(c); };
     $('#entrega').onclick = function () { modalEntrega(); };
     $('#vender').onclick = function () { modalVenderPack(); };
+    $('#venderPeca').onclick = function () { modalVenderPeca(); };
     $('#talaoBtn').onclick = function () { imprimirTalao(null); };
     if (podeEstender) $('#estender').onclick = modalEstender;
     $$('[data-libertar]').forEach(function (b) { b.onclick = function () { modalLibertar(b.getAttribute('data-libertar')); }; });
@@ -534,7 +536,7 @@
 
   function modalConcluido(m) {
     var fat = m.estadoFatura === 'PENDENTE';
-    abrirModal('<h2>' + (m.tipo === 'PACK' ? 'Pack registado' : 'Entrega registada') + '</h2>' +
+    abrirModal('<h2>' + (m.tipo === 'PACK' ? 'Pack registado' : String(m.descricao).indexOf('Venda à peça') === 0 ? 'Venda à peça registada' : 'Entrega registada') + '</h2>' +
       '<p>Saldo atual: <b>' + estado.cliente.saldo.total + ' peças</b></p>' +
       (fat ? '<h2 style="margin-top:16px">Fatura a emitir no GESFaturação</h2>' + blocoDadosFatura(m) +
         '<label for="numFat">Número da fatura (podes gravar mais tarde)</label><input type="text" id="numFat" placeholder="Ex.: FR 2026/123">' : '') +
@@ -599,6 +601,37 @@
             dados.cobrarAvulso = true; dados.faturacao = fat;
           }
           api('registarEntrega', dados).then(function (r) {
+            fecharModal();
+            api('obterCliente', { id: c.id }).then(function (cr) { estado.cliente = cr; desenharCliente(); modalConcluido(r.movimento); });
+          }).catch(function () {});
+        };
+      });
+    }).catch(function () {});
+  }
+
+  // Venda à peça: cobra todas as peças ao preço da peça, sem mexer no saldo do cliente.
+  function modalVenderPeca() {
+    garantirInicio().then(function (ini) {
+      var c = estado.cliente.cliente;
+      var saldo = estado.cliente.saldo.total;
+      abrirModal('<h2>Vender à peça — ' + esc(c.nome) + '</h2>' +
+        '<p class="suave">Preço por peça: <b>' + euros(ini.precoPeca) + '</b> (IVA incluído). Conta cada artigo como uma peça.' +
+        (saldo > 0 ? ' Esta venda <b>não desconta</b> do saldo do cliente (' + saldo + ' peças). Para usar o saldo, usa "Registar entrega".' : '') + '</p>' +
+        '<label for="nPecasAv">Número de peças</label><input type="number" id="nPecasAv" min="1" step="1" inputmode="numeric" style="font-size:24px">' +
+        '<div class="resumo"><div><span>Total a cobrar</span><b id="totalAv">' + euros(0) + '</b></div></div>' +
+        blocoFaturacao(c) +
+        '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn" id="confirmarAv">Confirmar venda</button></div>', function () {
+        var input = $('#nPecasAv');
+        input.oninput = function () {
+          var n = parseInt(input.value, 10) || 0;
+          $('#totalAv').textContent = euros(Math.round(n * ini.precoPeca * 100) / 100);
+        };
+        ligarFaturacao();
+        $('#confirmarAv').onclick = function () {
+          var n = parseInt(input.value, 10) || 0;
+          if (n < 1) { mensagem('Escreve o número de peças.', true); return; }
+          var fat = lerFaturacao(); if (!fat) return;
+          api('registarEntrega', { clienteId: c.id, pecas: n, soAvulso: true, faturacao: fat }).then(function (r) {
             fecharModal();
             api('obterCliente', { id: c.id }).then(function (cr) { estado.cliente = cr; desenharCliente(); modalConcluido(r.movimento); });
           }).catch(function () {});
