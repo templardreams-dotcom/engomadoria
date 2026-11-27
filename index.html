@@ -428,6 +428,7 @@
     if (podeEstender) $('#estender').onclick = modalEstender;
     $$('[data-libertar]').forEach(function (b) { b.onclick = function () { modalLibertar(b.getAttribute('data-libertar')); }; });
     $$('[data-anular]').forEach(function (b) { b.onclick = function () { modalAnular(b.getAttribute('data-anular')); }; });
+    $$('[data-apagar]').forEach(function (b) { b.onclick = function () { modalApagar(b.getAttribute('data-apagar')); }; });
     ligarBotoesFatura(pendentes, recarregarCliente);
   }
 
@@ -447,7 +448,7 @@
         return '<tr class="' + (m.anulado ? 'anulado' : '') + '"><td>' + dataHora(m.dataHora) + '</td><td>' + esc(NOMES_TIPO[m.tipo] || m.tipo) + '</td><td>' + esc(m.descricao) +
           (m.anulado ? '<br><span class="suave">Anulado: ' + esc(m.motivoAnulacao) + '</span>' : '') +
           '</td><td class="num">' + (m.pecas || '') + '</td><td class="num">' + (m.valor ? euros(m.valor) : '') + '</td><td>' + estadoFatura(m) + '</td><td>' + esc(m.utilizador) + '</td>' +
-          (eAdmin() ? '<td>' + (m.anulado ? '' : '<button class="btn sec peq" data-anular="' + esc(m.id) + '">Anular</button>') + '</td>' : '') + '</tr>';
+          (eAdmin() ? '<td>' + (m.anulado ? '<button class="btn sec peq" data-apagar="' + esc(m.id) + '">Apagar</button>' : '<button class="btn sec peq" data-anular="' + esc(m.id) + '">Anular</button>') + '</td>' : '') + '</tr>';
       }).join('') + '</table>';
   }
 
@@ -645,6 +646,20 @@
           fecharModal(); recarregarCliente();
           if (r.aviso) abrirModal('<h2>Atenção</h2><p>' + esc(r.aviso) + '</p><div class="rodape"><button class="btn" data-fechar>Percebi</button></div>');
           else mensagem('Movimento anulado.');
+        }).catch(function () {});
+      };
+    });
+  }
+
+  function modalApagar(movId) {
+    var m = estado.cliente.movimentos.filter(function (x) { return x.id === movId; })[0];
+    abrirModal('<h2>Apagar do histórico</h2><p>' + esc(NOMES_TIPO[m.tipo] || m.tipo) + ' de ' + dataHora(m.dataHora) + ': ' + esc(m.descricao) + '</p>' +
+      '<p class="suave">O movimento deixa de aparecer no histórico do cliente e nos relatórios. Não se pode desfazer na app. ' +
+      'Fica só uma cópia de segurança na folha de dados (separador MovimentosApagados).</p>' +
+      '<div class="rodape"><button class="btn sec" data-fechar>Cancelar</button><button class="btn perigo" id="confApagar">Apagar</button></div>', function () {
+      $('#confApagar').onclick = function () {
+        api('apagarMovimento', { movimentoId: movId }).then(function () {
+          fecharModal(); recarregarCliente(); mensagem('Movimento apagado do histórico.');
         }).catch(function () {});
       };
     });
